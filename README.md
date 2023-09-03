@@ -10,9 +10,16 @@ Phần mềm nạp : Progisp 1.7
 <https://icdayroi.com/attiny24a-ssu>\
 **Attiny24A có 14 chân và đóng gói dạng SOP**
 
-# Code cơ bản về attiny24A
+**================== Mục Lục ====================**
+- [Code cơ bản về attiny24A](#code-cơ-bản-về-attiny24a)
+- [GPIO](#1-gpio)
+- [Timer](#2-timer)
+- [Ngắt ngoài](#3-external-interrupt)
 
+## Code cơ bản về attiny24A
 ## 1. GPIO
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/ff640535-b616-4794-ad1a-2accbb3309fe" width = "300"/>
+
 a. Code
 
 ```c
@@ -43,10 +50,178 @@ int main(void)
 ```
 
 ## 2. Timer
-1. **Timer0**
-Các bước thiết lập Timer0
-    1. SET VALUE FOR TCNT0 REGISTER
-    2. SET MODE NORMAL OF TIMER0. SET PRESCALE
-    3. CHECK FLAG TOV0, IF TOV0 == 1 THEN TIMER0 OVERFLOW
-    4. TURN OFF TIMER0 BY WRITING 0 TO TCCR0 REGISTER
-    5. CLEAN FLAG TOV0 BY WRITING 1 TO BIT TOV0
+1. **----------------------------Timer0------------------------------**
+* Các bước thiết lập Timer0
+>    1. SET VALUE FOR **TCNT0** REGISTER
+>    2. SET **MODE NORMAL** OF TIMER0. SET PRESCALE
+>    3. CHECK FLAG TOV0, IF **TOV0 == 1** THEN TIMER0 OVERFLOW
+>    4. TURN OFF TIMER0 BY WRITING 0 TO TCCR0 REGISTER
+>    5. CLEAN FLAG TOV0 BY WRITING 1 TO BIT TOV0
+
+* Code thiết lập delay dựa vào timer0
+```c
+#define F_CPU 8000000UL	//khai bao thach anh de su dung thu vien delay
+#include <avr/io.h>     //thu vien io cho attiny
+void T0delay(){
+  TCNT0 = 156;		
+  TCCR0B = 0x02;	/*PRESCALE/8, F_CPU=8MHZ, 1 TICK=1US, 100 US-100 TICK*/
+  while((TIFR0 & 0x01) == 0); /*WHILE*/
+  TCCR0A = 0;
+  TCCR0B = 0;
+  TIFR0 = 0x1;
+}
+```
+>Kết quả: tạo ra delay thời gian 100us
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/30a0c470-3f46-4c84-a17f-16333fb3f3da" width = "400"/>
+
+**Vậy để tạo thời gian theo ý muốn cần thêm một hàm để lặp lại hàm T0delay trên như sau:**
+
+```c
+void delay_custom(uint8_t value)
+{
+  uint8_t t;
+  for(t=0;t<value;t++){
+    T0delay();
+  }
+}
+void loop() {
+  PORTB |= (1 << PB0);
+  delay_custom(10);     //10*100us = 1ms
+  PORTB &= ~(1 << PB0);
+  delay_custom(10);     //10*100us = 1ms
+}
+```
+**Sử dụng hàm ngắt timer0**
+
+```c
+/* PAGE 68 DOCUMENT ATTINY24A_ATMEL DATASHEET TIMER0 USING INTERRUPT FUNCTION  */
+#define F_CPU 8000000UL
+#include <avr/io.h>
+#include <avr/interrupt.h>
+int main()
+{
+    DDRB |=(1<<1);
+    cli();  // disable interrupt global
+    /* Reset Timer/Counter0 */
+    TCCR0A = 0;
+    TCCR0B = 0;
+    TIMSK0 = 0;
+    /* Setup Timer/Counter0 */
+    TCCR0B = 0x02;        	//prescale/8, F_CPU = 8Mhz, -> 1 tick = 1us
+    TCNT0 = 156;          	//interrupt at 100us -> 100 tick
+    TIMSK0 |= (1 << TOIE0); // Overflow interrupt enable
+    sei();                	// enable interrupt global
+    while(1){
+    }
+}
+ISR (TIM0_OVF_vect) //ham ngat trong microchip studio
+{
+  TCNT0 = 156;
+  PORTB ^= (1<<1);
+}
+```
+## 3. External Interrupt
+**Các bước cấu hình ngắt ngoài**
+**1. Các thanh ghi**
+    a. PCMSK0 – Pin Change Mask Register 0 
+
+|PCINT7|  PCINT6|  PCINT5|  PCINT4|  PCINT3|  PCINT2|  PCINT1|  PCINT0|
+|-     |-       |-        |-      |-        |-      |-        |-      |
+|A7	   |  A6		|  A5		 |  A4		|  A3		 |  A2		|  A1		 |  A0    |
+
+    b. MCUCR – MCU Control Register
+
+|ISC01| ISC00 | Description|
+|-    |-      |-           |
+|0 		|0 	    |The low level of INT0 generates an interrupt request|
+|0 		|1 	    |Any logical change on INT0 generates an interrupt request|
+|1 		|0 	    |The falling edge of INT0 generates an interrupt request|
+|1 		|1 	    |The rising edge of INT0 generates an interrupt request|
+
+    c. GIMSK – General Interrupt Mask Register
+
+- PCIE0: Pin Change Interrupt Enable 0.
+- When the PCIE0 bit is set (one) and the I-bit in the Status Register (SREG) is set (one), pin change interrupt 0 is enabled.
+
+**2. Code demo**
+
+**Ngắt ngoài tại chân A7**
+```c
+/*  Choose pin A7 is button, A6 is LED  */
+#define F_CPU 8000000UL
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+int main (void)
+{
+  DDRA |= (1<<6);   //A6 LED is pin 7 of chip
+  PORTA |= (1<<6);  //ON LED
+  DDRA &= ~(1<<7);  //A7 BUTTON is pin 6 of chip
+  PORTA |= (1<<7);  //PULL UP
+
+  MCUCR |= (1<<ISC01);  //Choose the falling edge of INT0
+  PCMSK0 |= (1<<PCINT7);
+
+  GIMSK |= (1<<PCIE0);
+  GIMSK |= (1<<INT0);
+
+  sei();  //enable global interrupt <=> SREG |= (1<<7);
+	while(1){
+	  //sleep mode
+	}
+}
+ISR(PCINT0_vect)    //hàm ngắt tại các chân thuộc PCMSK0
+{
+  /*CHONG DOI PHIM*/
+  if((PINA & (1<<7))==0)
+  {
+    _delay_ms(100);
+    while((PINA & (1<<7))==0);
+    PORTA ^= (1<<6);	
+  }
+}
+```
+>**Result** : First, LED light if the button is pressed the LED will light up. If the button is pressed again the LED will turn off.
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/0f8f9068-ef91-4b02-b322-3226978215b5" width = "200"/>
+Press button LED will turn off.
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/242412e2-2427-47da-a4dc-499e84e5850d" width = "200"/>
+
+**Ngắt tại chân INT0, chân PB2(pin 5) của mcu**
+```c
+#define F_CPU 8000000UL
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+#define ngatINT0  2 //PB2
+void NgatINT0();
+int main(void)
+{
+  NgatINT0();
+  while(1){
+  }
+}
+void NgatINT0()
+{ /*B2 IS INPUT , IS BUTTON ngatINT0, MODE PULLUP*/
+  DDRB |= ~(1 << ngatINT0);
+  PORTB |= (1 << ngatINT0);
+  DDRA |= (1<<6);   //A6 LED is pin 7 of chip
+  PORTA |= (1<<6);  //ON LED
+
+  /*SET INT0 AS FALLING EDGE TRIGGER*/
+  MCUCR |= (1 << ISC01);
+  GIMSK |= (1 << INT0);
+  sei();   /* SREG |= (1 << 7) */
+}
+
+ISR(EXT_INT0_vect)
+{
+  if ((PINB & (1<< ngatINT0)) == 0)
+  {
+    _delay_ms(100);
+    while ((PINB & (1 << ngatINT0)) == 0);
+    PORTA ^= (1<<6);	
+  }
+}
+```
+**Kết quả:** tương tự như ngắt ngoài tại chân PCINT0
+
