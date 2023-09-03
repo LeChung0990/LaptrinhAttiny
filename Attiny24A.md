@@ -1,7 +1,7 @@
 # Laptrinh Attiny24A
 
-IDE Lập trình : Microchip Studio
-Mạch nạp : USB ISP 3.0
+IDE Lập trình : Microchip Studio\
+Mạch nạp : USB ISP 3.0\
 Phần mềm nạp : Progisp 1.7
 
 ## 1.GPIO
