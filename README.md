@@ -4,7 +4,7 @@ IDE Lập trình : Microchip Studio\
 Mạch nạp : USB ISP 3.0\
 Phần mềm nạp : Progisp 1.7
 
-**Attiny24A là vi điều khiển thuộc họ AVR của hãng ATMEL với giá thành rẻ được trang bị 2KB bộ nhớ Flash 128byte EEPROM và 128byte SRAM, 4 kênh PWM, 2 timer 8 bit và 1 timer 16 bit, tần số dao động nội là 8MHz**
+**Attiny24A là vi điều khiển thuộc họ AVR của hãng ATMEL với giá thành rẻ được trang bị 2KB bộ nhớ Flash 128byte EEPROM và 128 byte SRAM, 4 kênh PWM, 2 timer 8 bit và 1 timer 16 bit, tần số dao động nội là 8MHz**
 
 **Mua Attiny24A tại shop sau:**
 <https://icdayroi.com/attiny24a-ssu>\
@@ -15,10 +15,13 @@ Phần mềm nạp : Progisp 1.7
 - [GPIO](#1-gpio)
 - [Timer](#2-timer)
 - [Ngắt ngoài](#3-external-interrupt)
-
+- [PWM](#4-pwm)
 ## Code cơ bản về attiny24A
 ## 1. GPIO
 <img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/ff640535-b616-4794-ad1a-2accbb3309fe" width = "300"/>
+
+- Cấu trúc I/O của attiny24A:
+- Gồm các diode để bảo vệ, gồm có 1 điện trở Rpu kéo lên nguồn để dùng cho chế độ input-pullup. Nếu dùng chân đó cho ADC thì không được sử dụng Rpu.
 
 a. Code
 
@@ -121,15 +124,18 @@ ISR (TIM0_OVF_vect) //ham ngat trong microchip studio
 }
 ```
 ## 3. External Interrupt
+
 **Các bước cấu hình ngắt ngoài**
+
 **1. Các thanh ghi**
-    a. PCMSK0 – Pin Change Mask Register 0 
+
+a. PCMSK0 – Pin Change Mask Register 0 
 
 |PCINT7|  PCINT6|  PCINT5|  PCINT4|  PCINT3|  PCINT2|  PCINT1|  PCINT0|
 |-     |-       |-        |-      |-        |-      |-        |-      |
 |A7	   |  A6		|  A5		 |  A4		|  A3		 |  A2		|  A1		 |  A0    |
 
-    b. MCUCR – MCU Control Register
+b. MCUCR – MCU Control Register
 
 |ISC01| ISC00 | Description|
 |-    |-      |-           |
@@ -138,7 +144,7 @@ ISR (TIM0_OVF_vect) //ham ngat trong microchip studio
 |1 		|0 	    |The falling edge of INT0 generates an interrupt request|
 |1 		|1 	    |The rising edge of INT0 generates an interrupt request|
 
-    c. GIMSK – General Interrupt Mask Register
+c. GIMSK – General Interrupt Mask Register
 
 - PCIE0: Pin Change Interrupt Enable 0.
 - When the PCIE0 bit is set (one) and the I-bit in the Status Register (SREG) is set (one), pin change interrupt 0 is enabled.
@@ -212,8 +218,7 @@ void NgatINT0()
   GIMSK |= (1 << INT0);
   sei();   /* SREG |= (1 << 7) */
 }
-
-ISR(EXT_INT0_vect)
+ISR(EXT_INT0_vect)  //ham ngat cua INT0
 {
   if ((PINB & (1<< ngatINT0)) == 0)
   {
@@ -225,3 +230,107 @@ ISR(EXT_INT0_vect)
 ```
 **Kết quả:** tương tự như ngắt ngoài tại chân PCINT0
 
+## 4. PWM
+
+**============== 1.Fast PWM mode ============**
+
+*CONFIG FAST PWM MODE IN TIMER0*
+>1. Set mode FAST PWM by bit WGM02,WGM01,WGM00=1
+  WGM02 in TCCR0B register, WGM01 : WGM00 in TCCR0A
+>2. Set Compare Output A Mode:
+  Non-inv : COM0A1 = 1, COM0A0 = 0 in TCCR0A
+>3. Clock select bit
+  Clk/8 : CS01 = 1 in TCCR0B
+>4. Pin OC0A is PB2 (5)
+
+**Operation:** When TCNT0 couter equal OCR0A, right away OC0A will status island then TCNT0 couter to 0xFF right away OC0A will status island.
+- Minh hoạ như sau:
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/87fe1e09-c067-4eaa-9e00-24ce0f59199a" alt = "ảnh fast pwm mode" width = "600"/>
+
+- **Code dưới đây cho LED sáng dần và tắt dần**
+
+```c
+#define F_CPU 8000000UL
+#include <avr/io.h>
+#include <util/delay.h>
+void PWM_Init()
+{
+  DDRB |= (1<<2);
+  TCCR0A |= (1<<WGM00)|(1<<WGM01)|(COM0A1);
+  TCCR0B |= (1<<CS01);	
+}
+int main(void)
+{
+	uint8_t duty;
+	PWM_Init(); 
+	while(1)
+  {
+    /*LED LIGHT*/
+    for(duty = 0; duty < 255; duty++){
+      OCR0A = duty;
+      _delay_ms(10);
+    }
+    /*LED OFF*/
+    for(duty = 255; duty > 1; duty--){
+      OCR0A = duty;
+      _delay_ms(10);
+    }
+  }
+}
+```
+- If in main function change contain following:
+```c
+	while(1)
+	{
+		OCR0A = 120;
+		_delay_ms(10);
+	}
+```
+- Result generate pulse frequency is 3906Hz, period 256us
+
+**============== 2.Phase corect PWM mode ============**
+- Similar Fast PWM mode, 1. Set mode phase correct PWM by bit
+- Minh hoạ như sau:
+
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/8e0215cb-eecf-4f90-9d71-e45df0cf869b" width = "600" />
+
+```c
+void PWM_Init()
+{
+  DDRB |= (1<<DDB2);
+  TCCR0A |= (1<<WGM00)|(1<<COM0A1);
+  TCCR0B |= (1<<CS01);
+}
+int main(void)
+{
+  unsigned char duty;
+  PWM_Init(); 
+  while(1){
+    OCR0A = 120;
+    _delay_ms(10);
+  }
+}
+```
+- Result generate pulse frequency is 1960Hz, period 510us, Ton = 239us, Toff = 271us
+
+<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/0f77d7f2-9087-4a64-953a-c6f810392053" width = "600" />
+
+**=================== 3.CTC Mode =====================**
+
+- Chế độ so sánh được sử dụng để tạo sự kiện định kỳ hoặc để tạo dạng sóng. Trong chế độ so sánh, có 1 thanh ghi so sánh, trong đó chúng ta có thể đặt giá trị để so sánh với giá trị thanh ghi timer/couter.
+
+- Khi giá trị so sánh khớp với giá trị thanh ghi bộ đếm thời gian, so sánh xảy ra. Sự kiện so sánh này được sử dụng để tạo dạng sóng, trong Atmega 16/32 timer đếm ngược cho đến khi giá trị của thanh ghi TCNT0 bằng OCR0 , ngay khi bằng thì bộ timer quay về 0 và cờ OCF0 sẽ được đặt, trong thanh ghi TIFR.
+
+/*CTC Mode != PWM Mode
+Because:
+1. PWM generates variable width pulses
+2. CTC generates pulses but the width is always 50%
+
+*/
+/* Choose Pin OC0A is pulse output
+Generate pulse frequency 1KHZ, period 1ms
+So set TCNT0 couter in 500us 
+F_OC0A = F_CPU/ (2*PRESCALE)*(1+OCR0A)
+-> 1000 = 8000000/(2*8)*(1+OCR0A)--> OCR0A = 499 (no)
+Choose prescale is 64 --> OCR0A = 61.5
+*/
