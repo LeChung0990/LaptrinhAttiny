@@ -10,12 +10,16 @@ Phần mềm nạp : Progisp 1.7
 <https://icdayroi.com/attiny24a-ssu>\
 **Attiny24A có 14 chân và đóng gói dạng SOP**
 
-**================== Mục Lục ====================**
+**=========== Mục Lục =============**
 - [Code cơ bản về attiny24A](#code-cơ-bản-về-attiny24a)
 - [GPIO](#1-gpio)
 - [Timer](#2-timer)
 - [Ngắt ngoài](#3-external-interrupt)
 - [PWM](#4-pwm)
+- [CTC Mode](#5-clear-on-compare-matchctc)
+- [ADC](#6-adc)
+- [EEPROM](#7-eeprom)
+
 ## Code cơ bản về attiny24A
 ## 1. GPIO
 <img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/ff640535-b616-4794-ad1a-2accbb3309fe" width = "300"/>
@@ -23,7 +27,7 @@ Phần mềm nạp : Progisp 1.7
 - Cấu trúc I/O của attiny24A:
 - Gồm các diode để bảo vệ, gồm có 1 điện trở Rpu kéo lên nguồn để dùng cho chế độ input-pullup. Nếu dùng chân đó cho ADC thì không được sử dụng Rpu.
 
-a. Code
+**a. Code**
 
 ```c
 #define F_CPU 8000000UL	//khai bao thach anh de su dung thu vien delay
@@ -53,7 +57,8 @@ int main(void)
 ```
 
 ## 2. Timer
-1. **----------------------------Timer0------------------------------**
+**1. ========= Timer0 ==========**
+
 * Các bước thiết lập Timer0
 >    1. SET VALUE FOR **TCNT0** REGISTER
 >    2. SET **MODE NORMAL** OF TIMER0. SET PRESCALE
@@ -232,7 +237,7 @@ ISR(EXT_INT0_vect)  //ham ngat cua INT0
 
 ## 4. PWM
 
-**============== 1.Fast PWM mode ============**
+**========= 1.Fast PWM mode =========**
 
 *CONFIG FAST PWM MODE IN TIMER0*
 >1. Set mode FAST PWM by bit WGM02,WGM01,WGM00=1
@@ -280,15 +285,15 @@ int main(void)
 ```
 - If in main function change contain following:
 ```c
-	while(1)
-	{
-		OCR0A = 120;
-		_delay_ms(10);
-	}
+while(1)
+{
+  OCR0A = 120;
+  _delay_ms(10);
+}
 ```
 - Result generate pulse frequency is 3906Hz, period 256us
 
-**============== 2.Phase corect PWM mode ============**
+**===== 2.Phase corect PWM mode =======**
 - Similar Fast PWM mode, 1. Set mode phase correct PWM by bit
 - Minh hoạ như sau:
 
@@ -315,22 +320,226 @@ int main(void)
 
 <img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/0f77d7f2-9087-4a64-953a-c6f810392053" width = "600" />
 
-**=================== 3.CTC Mode =====================**
+## 5. Clear On Compare Match(CTC)
 
-- Chế độ so sánh được sử dụng để tạo sự kiện định kỳ hoặc để tạo dạng sóng. Trong chế độ so sánh, có 1 thanh ghi so sánh, trong đó chúng ta có thể đặt giá trị để so sánh với giá trị thanh ghi timer/couter.
+- Chế độ so sánh được sử dụng để tạo sự kiện định kỳ hoặc để tạo dạng sóng. Trong chế độ so sánh, có 1 thanh ghi so sánh trong đó chúng ta có thể đặt giá trị để so sánh với giá trị thanh ghi timer/couter.
 
-- Khi giá trị so sánh khớp với giá trị thanh ghi bộ đếm thời gian, so sánh xảy ra. Sự kiện so sánh này được sử dụng để tạo dạng sóng, trong Atmega 16/32 timer đếm ngược cho đến khi giá trị của thanh ghi TCNT0 bằng OCR0 , ngay khi bằng thì bộ timer quay về 0 và cờ OCF0 sẽ được đặt, trong thanh ghi TIFR.
+- Khi giá trị so sánh khớp với giá trị thanh ghi bộ đếm thời gian, so sánh xảy ra. Sự kiện so sánh này được sử dụng để tạo dạng sóng, trong Atmega 16/32 timer đếm ngược cho đến khi giá trị của thanh ghi TCNT0 bằng OCR0 , ngay khi bằng thì bộ timer quay về 0 và cờ OCF0 sẽ được đặt trong thanh ghi TIFR.
 
-/*CTC Mode != PWM Mode
-Because:
-1. PWM generates variable width pulses
-2. CTC generates pulses but the width is always 50%
+**CTC Mode != PWM Mode**
+> Because:
+> 1. PWM generates variable width pulses
+> 2. CTC generates pulses but the width is always 50%
+> Using Normal mode & CTC mode:
+> 1. TCCR0: 
+> Choose mode CTC by WGM00, WGM01 bit
+> Choose compare mode by COM01, COM02 bit
+> WARNING: **Set DDRx OC0 = 1 is output**
 
-*/
-/* Choose Pin OC0A is pulse output
-Generate pulse frequency 1KHZ, period 1ms
-So set TCNT0 couter in 500us 
-F_OC0A = F_CPU/ (2*PRESCALE)*(1+OCR0A)
--> 1000 = 8000000/(2*8)*(1+OCR0A)--> OCR0A = 499 (no)
-Choose prescale is 64 --> OCR0A = 61.5
-*/
+- **Ví dụ dưới đây tạo xung vuông tần số 1008Hz:**
+
+> Choose Pin OC0A is pulse output Generate pulse frequency 1KHZ, period 1ms
+> So set TCNT0 couter in 500us 
+>
+> F_OC0A = F_CPU/ (2*PRESCALE)*(1+OCR0A)
+> => 1000 = 8000000/(2*8)*(1+OCR0A) => OCR0A = 499 (no)
+> Choose prescale is 64 --> OCR0A = 61.5
+
+Code:
+```c
+#define F_CPU 8000000UL
+#include <avr/io.h>
+
+int main()
+{
+	DDRB |= (1<<2); //PB2 IS OUTPUT
+	/*CTC MODE, TOGGLE ON COMPARE MATCH, PRESCALE/64*/
+	TCCR0B |= (1<<CS01)|(1<<CS00);
+	TCCR0A |= (1<<COM0A0)|(1<<WGM01);		
+	OCR0A = 61; //COMPARE VALUE
+	while(1){}
+}
+```
+> **RESULT:** Generate pulse frequency is 1008Hz 
+> IF OCR0A = 62 generate pulse frequency is 992 Hz
+
+- **Còn code dưới đây tạo xung vuông Ton = 1ms, Toff = 2ms**
+
+> T_OC0A first = Toff = PRESCALE*(1+OCR0A) / F_CPU = 64*(1+61)/ 8000000 = 496us
+> => Toff = 2ms => OCR0A = 249
+> => Ton = 1ms => OCR0A = 124
+
+Code:
+
+```c
+int main(void)
+{
+  DDRB |= (1<<2); //PB2 IS OUTPUT
+  while(1)
+  {
+    OCR0A = 249;
+    /*CTC MODE, TOGGLE ON COMPARE MATCH, PRESCALE/64*/
+    TCCR0B |= (1<<CS01)|(1<<CS00);
+    TCCR0A |= (1<<COM0A0)|(1<<WGM01);	
+    while((TIFR0&(1<<OCF0A)) == 0); /* MONITOR OCF0A FLAG*/
+    TIFR0 = (1<<OCF0A); /*CLEAR OCF0A BY WRITING 1*/
+    OCR0A = 124;
+    /*CTC MODE, CLEAR ON COMPARE MATCH, PRESCALE/64
+    MUST SET CLEAR OC0A BECAUSE WHILE TON PB2 = 1 SHOULD PULL DOWN 0
+    */
+    TCCR0B |= (1<<CS01)|(1<<CS00);
+    //TCCR0A |= (1<<COM0A1)|(1<<WGM01)|(0<<COM0A0);	
+    TCCR0A = 0x82;
+    while((TIFR0&(1<<OCF0A)) == 0); /* MONITOR OCF0A FLAG*/
+    TIFR0 = (1<<OCF0A); /*CLEAR OCF0A BY WRITING 1*/
+  }
+}
+```
+> **RESULT:** Generate pulse frequency is Ton 1ms, Toff 2ms
+
+## 6. ADC
+
+| ADPS2 |ADPS1| ADPS0| Division Factor|
+|-      |-    |-     |-               |
+|  0 	  |0 		|0 		  |2|
+|  0 		|0 		|1 		  |2|
+|  0		|1 	  |0      |4|
+|  0 		|1 		|1 		  |8|
+|  1	 	|0 	  |0 	    |16|
+|  1 		|0 		|1 		  |32|
+|  1 		|1 		|0 		  |64|
+|  1 		|1 		|1 		  |128|
+
+Code:
+
+```c
+void ADC_Init(uint8_t channel)
+{
+  switch (channel)
+  {
+    case 0: ADMUX = ~(1 << MUX0); break;  //ADC0
+    case 1: ADMUX = (1 << MUX0); break;
+    case 2: ADMUX = (1 << MUX1); break;
+    case 3: ADMUX = (1 << MUX0) | (1 << MUX1); break;
+    case 4: ADMUX = (1 << MUX2); break;
+    case 5: ADMUX = (1 << MUX0) | (1 << MUX2); break;
+    case 6: ADMUX = (1 << MUX1) | (1 << MUX2); break;
+    case 7: ADMUX = (1 << MUX0) | (1 << MUX1) | (1 << MUX2); break;
+  }
+  ADMUX &= ~(1 << REFS0) | ~(1 << REFS1); //Vcc used as analog reference
+  ADCSRA |= (1 << ADEN);                  //ADC Enable
+}
+```
+
+```c
+uint16_t ADC_Read(void)
+{
+	uint8_t low, high;
+	uint16_t ADC_Value;
+
+	ADCSRA |= (1 << ADSC);                //Start Conversion
+	ADCSRA |= (1 << ADPS2)|(1<<ADPS0);    // ADC PRESCALER /32
+	
+	while ((ADCSRA & (1 << ADSC)) == 1);  // Wait conversion is complete
+
+	low = ADCL;
+	high = ADCH;
+	ADC_Value = (high << 8) | low;
+
+	return ADC_Value;
+}
+```
+
+## 7. EEPROM
+
+
+```c
+void EEPROM_write(uint16_t Address, uint8_t Data)
+{
+  while(EECR & (1<<EEPE));
+  EECR = (0<<EEPM1)|(0<<EEPM0);
+  EEAR = Address;
+  EEDR = Data;
+  EECR |= (1<<EEMPE);
+  EECR |= (1<<EEPE);
+}
+uint8_t EEPROM_read(uint16_t Address)
+{
+  while(EECR & (1<<EEPE));
+  EEAR = Address;
+  EECR |= (1<<EERE);
+  return EEDR;
+}
+```
+
+## 8. SPI
+
+```c
+#include <avr/io.h>
+#define F_CPU 8000000UL
+#include <util/delay.h>
+/* SS or CS pin*/
+#define SS_PIN 7
+#define DD_SS_PIN DDA7
+/*DO (Data out)*/
+#define DO_PIN 5
+#define DD_DO_PIN DDA5
+/*DI (Data in)*/
+#define DI_PIN 6
+#define DD_DI_PIN DDA6
+/* CLK */
+#define CLK_PIN 4
+#define DD_CLK_PIN DDA4
+
+void SPI_SetUp()
+{
+  DDRA |= (1<<DD_DO_PIN)|(1<<DD_SS_PIN)|(1<<DD_CLK_PIN);
+  DDRA &= ~(1<<DD_DI_PIN);
+
+  /*SPI config*/
+  USICR = (1<<USIWM0);
+  /* SS_PIN on, DI_PIN enable pull-up*/
+  PORTA |= (1<<SS_PIN)|(1<<DI_PIN);
+}
+
+void setIODIR(uint8_t data)
+{
+  PORTA &= ~(1<<SS_PIN); 	//Select Slave
+  WriteSPI(0x40);	// Slave Address 
+  WriteSPI(0x00);	//IODIR address
+  WriteSPI(data); //IODIR direction
+  PORTA |= (1<<SS_PIN);	//Deselect Slave
+}
+
+void setGPIO(uint8_t data)
+{
+  PORTA &= ~(1<<SS_PIN);
+  WriteSPI(0x40);	// Slave Address 
+  WriteSPI(0x09);	// GPIO Address
+  WriteSPI(data);	// GPIO Value, 0 or 1 , ON or OFF
+  PORTA |= (1<<SS_PIN);
+}
+
+void WriteSPI(uint8_t data)
+{
+  //load USI Data register with data to transmit
+  USIDR = data;
+  //transmit the byte (8 bits)
+  for(char i=0; i<8; i++)
+  {
+    USICR = (1<<USIWM0)|(1<<USITC); //toggle clock pin
+    USICR = (1<<USIWM0)|(1<<USICLK)|(1<<USITC); //toggle clock pin and register counter
+  }
+}
+char SlaveSPI()
+{	
+  uint8_t data = 0;
+  USICR |= (1<<USIWM0)|(1<<USICS1);
+  if((USISR & (1<<USIOIF)))
+  {
+    data = USIBR;
+    USISR |= (1<<USIOIF); //Clearing counter overflow flag
+  }	
+  return data;
+}
+```
