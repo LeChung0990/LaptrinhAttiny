@@ -19,6 +19,9 @@ Phần mềm nạp : Progisp 1.7
 - [CTC Mode](#5-clear-on-compare-matchctc)
 - [ADC](#6-adc)
 - [EEPROM](#7-eeprom)
+- [SPI](#8-spi)
+- [I2C mềm](#9-i2c-mềm)
+
 
 ## Code cơ bản về attiny24A
 ## 1. GPIO
@@ -128,6 +131,7 @@ ISR (TIM0_OVF_vect) //ham ngat trong microchip studio
   PORTB ^= (1<<1);
 }
 ```
+
 ## 3. External Interrupt
 
 **Các bước cấu hình ngắt ngoài**
@@ -415,7 +419,7 @@ Code:
 ```c
 void ADC_Init(uint8_t channel)
 {
-  switch (channel)
+  switch (channel)  /*Choose ADC channel*/
   {
     case 0: ADMUX = ~(1 << MUX0); break;  //ADC0
     case 1: ADMUX = (1 << MUX0); break;
@@ -449,6 +453,38 @@ uint16_t ADC_Read(void)
 	return ADC_Value;
 }
 ```
+
+  Code dưới đây demo đọc giá trị ADC và quy đổi ra điện thế, nếu điện áp nhận được lớn hơn 2.5V sẽ cho đèn LED nối tại chân A4 sáng
+```c
+#include <avr/io.h>
+#include <util/delay.h>
+#define F_CPU 8000000UL
+#include "74HC595.h"
+#include "ADC.h"
+uint16_t ValueADC = 0;
+float volt = 0;
+ 
+int main(void)
+{
+	ADC_Init(3);
+	HC595_Init();
+	DDRA |= (1 << 4);
+    /* Replace with your application code */
+    while (1) 
+    {	
+		ValueADC = ADC_Read();
+		volt = (ValueADC * 5.0) / 1024.0;
+		if(volt>2.5) PORTA |= (1 << 4);
+		else PORTA &= ~(1 << 4);
+		FOUR7SEG(SEG_SELECT[0], SEG_MAP[(int)volt / 10]);
+		FOUR7SEG(SEG_SELECT[1], SEG_MAP[((int)volt % 10)]|0x80);
+		FOUR7SEG(SEG_SELECT[2], SEG_MAP[(int)(volt * 10) % 10]);
+		FOUR7SEG(SEG_SELECT[3], SEG_MAP[(int)(volt * 100) % 10]);
+    }
+}
+```
+Kết quả:
+![Alt text](adc1.png)
 
 ## 7. EEPROM
 
@@ -543,3 +579,47 @@ char SlaveSPI()
   return data;
 }
 ```
+## 9. I2C mềm
+
+## 24C04
+**- Nếu ghi dữ liệu vào eeprom 24C04 và sau đó đọc dữ liệu thì cần có thời gian delay**
+```c
+void WriteByte_Eeprom24C04(unsigned char StartAddress, unsigned char Data)
+{
+  i2c_start();
+  i2c_write(0xA0);  /* device write address 24c04 */
+  i2c_write(StartAddress);
+
+  i2c_write(Data);	/* Sequential Write*/
+  //i2c_write(Data1);
+  //i2c_write(Data2);
+  i2c_stop();
+}
+unsigned char ReadByte_Eeprom24C04(unsigned char StartAddress)
+{
+  uint8_t result;
+  i2c_start();
+  i2c_write(0xA0);
+  i2c_write(StartAddress);
+
+  i2c_start();
+  i2c_write(0xA1);
+  //btn1 = i2c_read(1);	/*Ack if Sequential Read */
+  //btn2 = i2c_read(1);
+  result = i2c_read(0);		/*Nack if read Random read*/
+  i2c_stop();
+  return result;
+}
+int main(void)
+{
+  WriteByte_Eeprom24C04(0x22, 9);
+  _delay_ms(10);
+  ReadByte_Eeprom24C04(0x22);
+    while (1) {
+    }
+}
+```
+Kết quả:
+![Alt text](24c04(1).png)
+quá trình ghi và đọc dữ liệu thu được trên tính năng debug I2C
+![Alt text](24c04(2).png)
