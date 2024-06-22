@@ -4,8 +4,8 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#define I2C_SCL   0 	//Pin SCL PIN 13 (A0)
-#define I2C_SDA   1 	//Pin SDA PIN 12 (A1)
+#define I2C_SCL   1 	//Pin SCL PIN 13 (A1)
+#define I2C_SDA   0 	//Pin SDA PIN 12 (A0)
 #define I2C_DDR	  DDRA
 #define I2C_PIN   PINA
 #define I2C_DELAY _delay_us(10); 
@@ -34,24 +34,17 @@ static void i2c_init(void)
 void i2c_start(void)
 {
   /* SDA GOES LOW FIRST, SCL GOES LOW SECOND*/
-  SCL_1;
-  I2C_DELAY;
-  SDA_1;
-  I2C_DELAY;
-  SDA_0;
-  I2C_DELAY;
-  SCL_0;
-  I2C_DELAY;
+  SCL_1;  I2C_DELAY;
+  SDA_1;  I2C_DELAY;
+  SDA_0;  I2C_DELAY;
+  SCL_0;  I2C_DELAY;
 }
 void i2c_stop(void) {
   /* DAU TIEN CHO SCL XUONG THAP, CHUAN BI CHO SDA TU 
 	THAP LEN CAO, SCL LEN MUC CAO TRUOC, SDA LEN MUC CAO THU HAI*/
-  SDA_0;
-  I2C_DELAY;  
-  SCL_1;
-  I2C_DELAY;
-  SDA_1;
-  I2C_DELAY;
+  SDA_0;  I2C_DELAY;  
+  SCL_1;  I2C_DELAY;
+  SDA_1;  I2C_DELAY;
 }
 
 /*------------------Data Write and Data Read-------------*/

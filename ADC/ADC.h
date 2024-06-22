@@ -35,7 +35,8 @@ void ADC_Init(uint8_t channel)
 		case 6: ADMUX = (1 << MUX1) | (1 << MUX2); break;
 		case 7: ADMUX = (1 << MUX0) | (1 << MUX1) | (1 << MUX2); break;
 	}
-	ADMUX &= ~(1 << REFS0) | ~(1 << REFS1); //Vcc used as analog reference
+	ADMUX &= ~(1 << REFS0); //Internal 1.1V voltage reference
+	ADMUX |=  (1 << REFS1);
 	ADCSRA |= (1 << ADEN);                  //ADC Enable
 }
 

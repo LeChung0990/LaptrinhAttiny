@@ -18,13 +18,18 @@ int main(void)
     while (1) 
     {	
 		ValueADC = ADC_Read();
-		volt = (ValueADC * 5.0) / 1024.0;
-		if(volt>2.5) PORTA |= (1 << 2);
-		else PORTA &= ~(1 << 2);
-		FOUR7SEG(SEG_SELECT[0], SEG_MAP[(int)volt / 10]);
+/* 		volt = (ValueADC * 5.0) / 1024.0;
+		if(volt>2.5) PORTA |= (1 << 2); */
+		/* else PORTA &= ~(1 << 2); */
+/* 		FOUR7SEG(SEG_SELECT[0], SEG_MAP[(int)volt / 10]);
 		FOUR7SEG(SEG_SELECT[1], SEG_MAP[((int)volt % 10)]|0x80);
 		FOUR7SEG(SEG_SELECT[2], SEG_MAP[(int)(volt * 10) % 10]);
-		FOUR7SEG(SEG_SELECT[3], SEG_MAP[(int)(volt * 100) % 10]);
+		FOUR7SEG(SEG_SELECT[3], SEG_MAP[(int)(volt * 100) % 10]); */
+		
+		FOUR7SEG(SEG_SELECT[0], SEG_MAP[(int)ValueADC / 1000]);
+		FOUR7SEG(SEG_SELECT[1], SEG_MAP[(int)(ValueADC / 100) % 10]);
+		FOUR7SEG(SEG_SELECT[2], SEG_MAP[(int)(ValueADC /10) % 10]);
+		FOUR7SEG(SEG_SELECT[3], SEG_MAP[(int)(ValueADC / 1) % 10]);
     }
 }
 

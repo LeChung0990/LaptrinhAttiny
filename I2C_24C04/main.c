@@ -20,8 +20,6 @@ void WriteByte_Eeprom24C04(unsigned char StartAddress, unsigned char Data)
 	i2c_write(StartAddress);
 
 	i2c_write(Data);	/* Sequential Write*/
-	//i2c_write(Data1);
-	//i2c_write(Data2);
 	i2c_stop();
 }
 unsigned char ReadByte_Eeprom24C04(unsigned char StartAddress)
@@ -33,21 +31,20 @@ unsigned char ReadByte_Eeprom24C04(unsigned char StartAddress)
 
 	i2c_start();
 	i2c_write(0xA1);
-	//btn1 = i2c_read(1);	/*Ack if Sequential Read */
-	//btn2 = i2c_read(1);
 	result = i2c_read(0);		/*Nack if read Random read*/
 	i2c_stop();
 	return result;
 }
 int main(void)
 {
-    WriteByte_Eeprom24C04(0x00, 90);
+    _delay_ms(10);
+    WriteByte_Eeprom24C04(0x00, 0x34);
 	_delay_ms(10);
-	WriteByte_Eeprom24C04(0x10, 100);
+	WriteByte_Eeprom24C04(0x10, 0x22);
 	_delay_ms(10);
-	WriteByte_Eeprom24C04(0x20, 23);
+	WriteByte_Eeprom24C04(0x20, 0x23);
 	_delay_ms(10);
-	WriteByte_Eeprom24C04(0x30, 24);
+	WriteByte_Eeprom24C04(0x30, 0x24);
 	_delay_ms(10);
 	btn = ReadByte_Eeprom24C04(0x30);
     while (1) {
