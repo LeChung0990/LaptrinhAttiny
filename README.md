@@ -1,15 +1,4 @@
-# Laptrinh Attiny24A
-
-IDE Lập trình : Microchip Studio\
-Mạch nạp : USB ISP 3.0\
-Phần mềm nạp : Progisp 1.7
-
-**Attiny24A là vi điều khiển thuộc họ AVR của hãng ATMEL với giá thành rẻ được trang bị 2KB bộ nhớ Flash 128byte EEPROM và 128 byte SRAM, 4 kênh PWM, 2 timer 8 bit và 1 timer 16 bit, tần số dao động nội là 8MHz**
-
-**Mua Attiny24A tại shop sau:**
-<https://icdayroi.com/attiny24a-ssu>\
-**Attiny24A có 14 chân và đóng gói dạng SOP**
-
+# Lập trình Attiny24A
 **=========== Mục Lục =============**
 - [Code cơ bản về attiny24A](#code-cơ-bản-về-attiny24a)
 - [GPIO](#1-gpio)
@@ -19,20 +8,52 @@ Phần mềm nạp : Progisp 1.7
 - [CTC Mode](#5-clear-on-compare-matchctc)
 - [ADC](#6-adc)
 - [EEPROM](#7-eeprom)
+IDE Lập trình : Microchip Studio\
+Mạch nạp : USB ISP 3.0\
+Phần mềm nạp : Progisp 1.7
 
-## Code cơ bản về attiny24A
-## 1. GPIO
-<img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/ff640535-b616-4794-ad1a-2accbb3309fe" width = "300"/>
+Attiny24A là vi điều khiển thuộc họ AVR của hãng ATMEL với giá thành rẻ được trang bị 2KB bộ nhớ Flash 128byte EEPROM và 128 byte SRAM, 4 kênh PWM, 2 timer 8 bit và 1 timer 16 bit, tần số dao động nội là 8MHz
 
-- Cấu trúc I/O của attiny24A:
-- Gồm các diode để bảo vệ, gồm có 1 điện trở Rpu kéo lên nguồn để dùng cho chế độ input-pullup. Nếu dùng chân đó cho ADC thì không được sử dụng Rpu.
+**Mua Attiny24A tại shop sau:**
+<https://icdayroi.com/attiny24a-ssu>\
+**Attiny24A có 14 chân và đóng gói dạng SOP**
 
-**a. Code**
+- Trước kia lập trình mình sử dụng Microchip Studio tuy nhiên phần mềm về sau khá nặng mà nhu cầu chỉ lập trình cho Attinty24A làm project nhỏ nên mình đã sử dụng compile **avr-gcc** có sẵn khi cài Arduino, đường dẫn đến compiler trên máy mình như sau:
+
+        "E:\Documents\Arduino\arduino-1.8.19\hardware\tools\avr\bin\avr-gcc"
+        "E:\Documents\Arduino\arduino-1.8.19\hardware\tools\avr\bin\avr-objcopy"
+- Vì sử dụng Arduino bản 1.8.19 nên đường dẫn như trên, ngoài sử dụng compile thì mình dùng thêm **makefile** để tiện cho việc build chương trình. Cấu trúc 1 file template đơn giản để lập trình khá đơn giản, không nhiều file như phần mềm Microchip Studio.
+
+Một thư mục Template cơ bản như sau:
+
+        Template
+            |- main.c
+            |- makefile
+            |- main.hex
+            |- main.o
+            |- main.elf
+            |- lib.c
+            |- lib.h
+            |README --> THIS FILE
+- Cấu trúc chỉ đơn giản như vậy, nếu có library thì mình thêm vào thư mục, các file sau biên dịch cũng nằm trong thư mục để cây thư mục đơn giản không nhiều folder, tiện cho mình theo dõi.
+
+
+# Code dùng trình biên dịch avr-gcc từ arduino để biên dịch cho Attiny24A
+
+    
+**Trong file main.c sẽ khai báo tên chip sử dụng, tần số hoạt động**
+<img src= Image/template_code.png width = "250" >
+
+**Code**
 
 ```c
-#define F_CPU 8000000UL	//khai bao thach anh de su dung thu vien delay
-#include <avr/io.h>     //thu vien io cho attiny
-#include <util/delay.h> //thu vien delay
+#define __AVR_ATtiny24A__
+#define F_CPU 8000000UL   //khai bao thach anh de su dung thu vien delay
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+#include "lib.h"
+
 #define	led     6   //LED pin A6
 #define button  7   //BUTTON pin A7
 int main(void)
@@ -56,7 +77,11 @@ int main(void)
 }
 ```
 
-## 2. Timer
+**Mở CMD và gõ make để biên dịch chương trình**
+
+<img src= Image/build_cmd.png width = "250" >
+
+## Timer
 **1. ========= Timer0 ==========**
 
 * Các bước thiết lập Timer0
@@ -67,9 +92,13 @@ int main(void)
 >    5. CLEAN FLAG TOV0 BY WRITING 1 TO BIT TOV0
 
 * Code thiết lập delay dựa vào timer0
+
 ```c
-#define F_CPU 8000000UL	//khai bao thach anh de su dung thu vien delay
-#include <avr/io.h>     //thu vien io cho attiny
+#define __AVR_ATtiny24A__
+#define F_CPU 8000000UL   //khai bao thach anh de su dung thu vien delay
+#include <avr/io.h>        //thu vien io cho attiny
+#include <util/delay.h>
+#include <avr/interrupt.h>
 void T0delay(){
   TCNT0 = 156;		
   TCCR0B = 0x02;	/*PRESCALE/8, F_CPU=8MHZ, 1 TICK=1US, 100 US-100 TICK*/
@@ -79,6 +108,7 @@ void T0delay(){
   TIFR0 = 0x1;
 }
 ```
+
 >Kết quả: tạo ra delay thời gian 100us
 <img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/30a0c470-3f46-4c84-a17f-16333fb3f3da" width = "400"/>
 
@@ -103,9 +133,6 @@ void loop() {
 
 ```c
 /* PAGE 68 DOCUMENT ATTINY24A_ATMEL DATASHEET TIMER0 USING INTERRUPT FUNCTION  */
-#define F_CPU 8000000UL
-#include <avr/io.h>
-#include <avr/interrupt.h>
 int main()
 {
     DDRB |=(1<<1);
@@ -122,19 +149,24 @@ int main()
     while(1){
     }
 }
-ISR (TIM0_OVF_vect) //ham ngat trong microchip studio
+ISR (TIM0_OVF_vect) //ham ngat trong avr gcc
 {
   TCNT0 = 156;
   PORTB ^= (1<<1);
 }
 ```
+Đây là định nghĩa ngắt trong hàm iotn24a.h trong thư mục **Function_AVR_GCC**
+
+![alt text](Image/interrupt_vect.png)
+
+
 ## 3. External Interrupt
 
 **Các bước cấu hình ngắt ngoài**
 
 **1. Các thanh ghi**
 
-a. PCMSK0 – Pin Change Mask Register 0 
+a. PCMSK0 – Pin Change Mask Register 0
 
 |PCINT7|  PCINT6|  PCINT5|  PCINT4|  PCINT3|  PCINT2|  PCINT1|  PCINT0|
 |-     |-       |-        |-      |-        |-      |-        |-      |
@@ -159,10 +191,6 @@ c. GIMSK – General Interrupt Mask Register
 **Ngắt ngoài tại chân A7**
 ```c
 /*  Choose pin A7 is button, A6 is LED  */
-#define F_CPU 8000000UL
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <util/delay.h>
 int main (void)
 {
   DDRA |= (1<<6);   //A6 LED is pin 7 of chip
@@ -199,10 +227,6 @@ Press button LED will turn off.
 
 **Ngắt tại chân INT0, chân PB2(pin 5) của mcu**
 ```c
-#define F_CPU 8000000UL
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <util/delay.h>
 #define ngatINT0  2 //PB2
 void NgatINT0();
 int main(void)
@@ -235,8 +259,47 @@ ISR(EXT_INT0_vect)  //ham ngat cua INT0
 ```
 **Kết quả:** tương tự như ngắt ngoài tại chân PCINT0
 
-## 4. PWM
+### I2C_24C04
 
+Ghi số 52 vào vị trí 0x00, 34 vào 0x10, 35 vào 0x20, 36 vào 0x30
+
+<img src= Image/24C04-2.png width = "250" >
+<img src= Image/24C04.png width = "250" >
+
+## OLED LCD 128x64
+
+<img src= Image/oled.png width = "250" >
+
+Hiển thị số lên LCD OLED
+
+<img src= Image/oled2.png width = "250" >
+
+Kết quả
+
+<img src= Image/oled3.png width = "250" >
+
+Bảng giá trị hiển thị OLED cơ bản
+
+<img src= Image/oled4.png width = "250" >
+
+Dưới đây là bảng chi tiết
+
+<img src= Image/oled5.png width = "250" >
+
+Kết quả
+
+<img src= Image/oled6.png width = "250" >
+
+## OLED LCD 128x64 BIGNUMBER
+Kết quả: Dòng 1
+
+<img src= Image/oled7.png width = "250" >
+
+Dòng 2
+
+<img src= Image/oled8.png width = "250" >
+
+## 4. PWM
 **========= 1.Fast PWM mode =========**
 
 *CONFIG FAST PWM MODE IN TIMER0*
@@ -250,14 +313,12 @@ ISR(EXT_INT0_vect)  //ham ngat cua INT0
 
 **Operation:** When TCNT0 couter equal OCR0A, right away OC0A will status island then TCNT0 couter to 0xFF right away OC0A will status island.
 - Minh hoạ như sau:
+
 <img src = "https://github.com/LeChung0990/LaptrinhAttiny/assets/126931730/87fe1e09-c067-4eaa-9e00-24ce0f59199a" alt = "ảnh fast pwm mode" width = "600"/>
 
 - **Code dưới đây cho LED sáng dần và tắt dần**
 
 ```c
-#define F_CPU 8000000UL
-#include <avr/io.h>
-#include <util/delay.h>
 void PWM_Init()
 {
   DDRB |= (1<<2);
@@ -347,9 +408,7 @@ int main(void)
 
 Code:
 ```c
-#define F_CPU 8000000UL
 #include <avr/io.h>
-
 int main()
 {
 	DDRB |= (1<<2); //PB2 IS OUTPUT
@@ -410,74 +469,12 @@ int main(void)
 |  1 		|1 		|0 		  |64|
 |  1 		|1 		|1 		  |128|
 
-Code:
-
-```c
-void ADC_Init(uint8_t channel)
-{
-  switch (channel)
-  {
-    case 0: ADMUX = ~(1 << MUX0); break;  //ADC0
-    case 1: ADMUX = (1 << MUX0); break;
-    case 2: ADMUX = (1 << MUX1); break;
-    case 3: ADMUX = (1 << MUX0) | (1 << MUX1); break;
-    case 4: ADMUX = (1 << MUX2); break;
-    case 5: ADMUX = (1 << MUX0) | (1 << MUX2); break;
-    case 6: ADMUX = (1 << MUX1) | (1 << MUX2); break;
-    case 7: ADMUX = (1 << MUX0) | (1 << MUX1) | (1 << MUX2); break;
-  }
-  ADMUX &= ~(1 << REFS0) | ~(1 << REFS1); //Vcc used as analog reference
-  ADCSRA |= (1 << ADEN);                  //ADC Enable
-}
-```
-
-```c
-uint16_t ADC_Read(void)
-{
-	uint8_t low, high;
-	uint16_t ADC_Value;
-
-	ADCSRA |= (1 << ADSC);                //Start Conversion
-	ADCSRA |= (1 << ADPS2)|(1<<ADPS0);    // ADC PRESCALER /32
-	
-	while ((ADCSRA & (1 << ADSC)) == 1);  // Wait conversion is complete
-
-	low = ADCL;
-	high = ADCH;
-	ADC_Value = (high << 8) | low;
-
-	return ADC_Value;
-}
-```
-
 ## 7. EEPROM
-
-
-```c
-void EEPROM_write(uint16_t Address, uint8_t Data)
-{
-  while(EECR & (1<<EEPE));
-  EECR = (0<<EEPM1)|(0<<EEPM0);
-  EEAR = Address;
-  EEDR = Data;
-  EECR |= (1<<EEMPE);
-  EECR |= (1<<EEPE);
-}
-uint8_t EEPROM_read(uint16_t Address)
-{
-  while(EECR & (1<<EEPE));
-  EEAR = Address;
-  EECR |= (1<<EERE);
-  return EEDR;
-}
-```
+     Github/EEPROM   
 
 ## 8. SPI
 
 ```c
-#include <avr/io.h>
-#define F_CPU 8000000UL
-#include <util/delay.h>
 /* SS or CS pin*/
 #define SS_PIN 7
 #define DD_SS_PIN DDA7
